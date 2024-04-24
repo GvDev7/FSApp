@@ -3,6 +3,62 @@ from flask import request, jsonify
 from config import app, db
 from models import Contact
 
+@app.route('/contacts', methods=['GET'])
+def get_all_contacts():
+    contacts = Contact.query.all()
+    json_contacts = list(map(lambda x: x.to_json(), contacts))
+    return jsonify({'contacts': json_contacts}), 200
+
+@app.route('/create_contacts', methods=['POST'])
+def create_new_contact():
+    first_name = request.json.get("firstName")
+    last_name = request.json.get('lastName')
+    email = request.json.get("email")
+
+    if not first_name or not  last_name or not email:
+        return jsonify({"message": "Missing parameters"}), 400
+    
+    new_contact = Contact(first_name=first_name, last_name=last_name, email=email)
+    try: 
+        # Adds data to the session but not yet to db
+        db.session.add(new_contact)
+        #  Commits the data and saves it in the database
+        db.session.commit()
+    except Exception as e:
+        # If error occured
+        return  jsonify({"message": str(e)}), 400
+    #  If commitment to db was successfully created
+    return jsonify(new_contact.to_json()), 201
+
+@app.route("/update_contact/<int:user_id>", methods=['PATCH'])
+def  update_contact(user_id):
+    contact = Contact.query.get(user_id)
+    if not contact:
+        return jsonify({"message":"Contact does not exist"}), 404
+    data = request.json
+    contact.first_name = data.get("firstName", contact.first_name)
+    contact.last_name = data.get("lastName", contact.last_name)
+    contact.email = data.get("email", contact.email)
+
+    db.session.commit()
+    return jsonify({"message": "Contact has been updated"}), 200
+
+@app.route("/delete_contact/<int:user_id>", methods=["DELETE"])
+def delete_contact(user_id):
+    contact = Contact.query.get(user_id)
+    if not contact:
+        return jsonify({"message":"Contact does not exist"}) , 404
+    db.session.delete(contact)
+    db.session.commit()
+    return jsonify({"message":"Contact has been deleted"}) , 200
+    
+
+if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
+    
+    app.run(debug=True)
+
 # Create
 # Needs first and last name and email
 
